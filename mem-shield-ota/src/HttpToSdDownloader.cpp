@@ -2,35 +2,100 @@
 #include <SD.h>
 #include "HttpToSdDownloader.h"
 
+int getFileNameLength(const char *targetFileName);
+
+int findLastIndex(const char *str, char x);
+
+int downloadToSdFile(Client *client, const char *targetFileName);
+
 int HttpToSdDownloader::download(const char *host, int port, const char *path, const char *targetFileName) {
-    return downloadFileToSdFile(this->client, host, port, path, targetFileName);
-}
-
-int downloadFileToSdFile(Client *client, const char *host, int port, const char *path, const char *targetFileName) {
-
-    File sdFile = SD.open(targetFileName, O_CREAT | O_WRITE | O_TRUNC);
-    if (!sdFile) {
-        return ERROR_FILE_OPEN;
+    int result;
+    if (client->connected()) {
+        result = downloadReuseConnection(host, path, targetFileName);
+    } else {
+        result = downloadReconnect(host, port, path, targetFileName);
     }
-    return downloadFileToStream(client, host, port, path, &sdFile);
+    return result;
 }
 
-int downloadFileToStream(Client *client, const char *host, int port, const char *path, Stream *target) {
+int HttpToSdDownloader::downloadReuseConnection(const char *host, const char *path, const char *targetFileName) {
+    if (!prepareGetRequest(host, path)) {
+        return ERROR_HTTP_WRITE_ERROR;
+    }
+    client->println("Connection: keep-alive");
+    client->println();
 
+    return downloadToSdFile(client, targetFileName);
+}
+
+int HttpToSdDownloader::downloadReconnect(const char *host, int port, const char *path, const char *targetFileName) {
     if (!client->connect(host, port)) {
         return ERROR_HTTP_CONNECTION_FAILED;
     }
 
-    char requestLine[max(sizeof(host), strlen(path) + 14)];
-    snprintf(requestLine, sizeof(requestLine), "GET %s HTTP/1.1", path);
-    Serial.println(requestLine);
-    client->println(requestLine);
-    snprintf(requestLine, sizeof(requestLine), "Host: %s", host);
-    client->println(requestLine);
+    if (!prepareGetRequest(host, path)) {
+        return ERROR_HTTP_WRITE_ERROR;
+    }
     client->println("Connection: close");
     client->println();
 
-    return downloadToStream(client, target);
+    int status = downloadToSdFile(client, targetFileName);
+
+    client->stop();
+
+    return status;
+}
+
+int HttpToSdDownloader::prepareGetRequest(const char *host, const char *path) {
+    char requestLine[max(sizeof(host), strlen(path) + 14)];
+    snprintf(requestLine, sizeof(requestLine), "GET %s HTTP/1.1", path);
+    if (client->println(requestLine) == 0) {
+        return 0;
+    }
+    snprintf(requestLine, sizeof(requestLine), "Host: %s", host);
+    if (client->println(requestLine) == 0) {
+        return 0;
+    }
+    return 1;
+}
+
+int HttpToSdDownloader::download(const char *targetFileName) {
+    return downloadToSdFile(client, targetFileName);
+}
+
+int downloadToSdFile(Client *client, const char *targetFileName) {
+    if (getFileNameLength(targetFileName) > 8) {
+        return ERROR_FILE_NAME_TOO_LONG;
+    }
+    File targetFile = SD.open(targetFileName, O_CREAT | O_WRITE | O_TRUNC);
+    if (!targetFile) {
+        return ERROR_FILE_OPEN;
+    }
+
+    return downloadToStream(client, &targetFile);
+}
+
+int downloadToStream(Client *client, Stream *target) {
+
+    int contentLength = readHeaderSection(client);
+    if (contentLength == -1) {
+        return ERROR_HTTP_READ_ERROR;
+    } else if (contentLength == 0) {
+        return ERROR_CONTENT_LENGTH_UNKNOWN;
+    }
+
+    int bytesCopied = copyStream(client, target);
+    if (bytesCopied == -1) {
+        return ERROR_FILE_WRITE;
+    }
+
+    if (bytesCopied != contentLength) {
+        return ERROR_CONTENT_LENGTH_MISMATCH;
+    }
+
+    target->flush();
+
+    return DOWNLOAD_OK;
 }
 
 /**
@@ -90,28 +155,23 @@ int readHeaderSection(Client *client) {
     return contentLength;
 }
 
-int downloadToStream(Client *client, Stream *target) {
-
-    int contentLength = readHeaderSection(client);
-    if (contentLength == -1) {
-        return ERROR_HTTP_READ_ERROR;
-    } else if (contentLength == 0) {
-        return ERROR_CONTENT_LENGTH_UNKNOWN;
+int getFileNameLength(const char *targetFileName) {
+    int fileNameStartIndex = findLastIndex(targetFileName, '/') + 1;
+    int fileNameEndIndex = findLastIndex(targetFileName, '.') - 1;
+    if (fileNameEndIndex < 0) {
+        fileNameEndIndex = strlen(targetFileName) - 1;
     }
+    int fileNameLength = fileNameEndIndex - fileNameStartIndex + 1;
+    return fileNameLength;
+}
 
-    int bytesCopied = copyStream(client, target);
-    if (bytesCopied == -1) {
-        return ERROR_FILE_WRITE;
+int findLastIndex(const char *str, char x) {
+    for (int i = strlen(str); i >= 0; i--) {
+        if (str[i] == x) {
+            return i;
+        }
     }
-
-    if (bytesCopied != contentLength) {
-        return ERROR_CONTENT_LENGTH_MISMATCH;
-    }
-
-    target->flush();
-    client->stop();
-
-    return DOWNLOAD_OK;
+    return -1;
 }
 
 int copyStream(Stream *source, Stream *target) {
@@ -126,4 +186,3 @@ int copyStream(Stream *source, Stream *target) {
     }
     return bytesCopied;
 }
-

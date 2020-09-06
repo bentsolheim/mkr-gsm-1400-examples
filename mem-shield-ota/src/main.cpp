@@ -21,6 +21,7 @@ GSM gsm;
 GPRS gprs;
 GSMSSLClient client;
 
+char outputFolder[] = "/test";
 
 const int SDchipSelect = 4;
 
@@ -42,9 +43,6 @@ void setup() {
         Serial.println("SD Failed");
         return;
     }
-    char outputFolder[] = "/test";
-    File root = SD.open(outputFolder);
-    printDirectory(root, 0);
 
     Serial.println("Network start");
     bool connected = false;
@@ -70,44 +68,66 @@ void setup() {
     }
 
     client.setTimeout(1000);
-    if (!client.connect("raw.githubusercontent.com", 443)) {
-        //
-    }
-    HttpToSdDownloader downloader(&client);
-
-    int status = downloader.download("raw.githubusercontent.com", 443,
-                                     "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini",
-                                     "/test/pio.ini");
-
-    Serial.println();
-    if (status != DOWNLOAD_OK) {
-        Serial.print("Download failed. Error code: ");
-        Serial.println(status);
-    } else {
-        Serial.println("Download success");
-    }
-
-    status = downloader.download("raw.githubusercontent.com", 443,
-                                     "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png",
-                                     "/test/diagram.png");
-
-    Serial.println();
-    if (status != DOWNLOAD_OK) {
-        Serial.print("Download failed. Error code: ");
-        Serial.println(status);
-    } else {
-        Serial.println("Download success");
-    }
-
-    root = SD.open(outputFolder);
-    printDirectory(root, 0);
 }
 
 void loop() {
     Serial.print(__DATE__);
     Serial.print(" ");
     Serial.println(__TIME__);
-    delay(5000);
+
+    int status;
+    unsigned long start;
+
+    start = millis();
+    if (!client.connect("raw.githubusercontent.com", 443)) {
+        Serial.println("Unable to connect");
+    } else {
+        Serial.print("Connected in ");
+        Serial.print(millis() - start);
+        Serial.println(" millis");
+    }
+    HttpToSdDownloader downloader(&client);
+
+    const char *path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini";
+    const char *targetFileName = "/test/pio.ini";
+    status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
+
+    if (status != DOWNLOAD_OK) {
+        Serial.print("Download failed. Error code: ");
+        Serial.println(status);
+    } else {
+        Serial.print("Downloaded ");
+        Serial.print(path);
+        Serial.print(" to ");
+        Serial.print(targetFileName);
+        Serial.print(" in ");
+        Serial.print(millis() - start);
+        Serial.println(" millis");
+    }
+
+    path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png";
+    targetFileName = "/test/diagram.png";
+    status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
+
+    if (status != DOWNLOAD_OK) {
+        Serial.print("Download failed. Error code: ");
+        Serial.println(status);
+    } else {
+        Serial.print("Downloaded ");
+        Serial.print(path);
+        Serial.print(" to ");
+        Serial.print(targetFileName);
+        Serial.print(" in ");
+        Serial.print(millis() - start);
+        Serial.println(" millis");
+    }
+
+    client.stop();
+
+    File root = SD.open(outputFolder);
+    printDirectory(root, 0);
+
+    delay(15000);
 }
 
 void printDirectory(File dir, int numTabs) {

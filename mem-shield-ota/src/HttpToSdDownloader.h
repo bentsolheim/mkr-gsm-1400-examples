@@ -7,12 +7,12 @@
 static const int DOWNLOAD_OK = 0;
 static const int ERROR_HTTP_CONNECTION_FAILED = -1;
 static const int ERROR_HTTP_READ_ERROR = -4;
+static const int ERROR_HTTP_WRITE_ERROR = -8;
 static const int ERROR_FILE_WRITE = -2;
 static const int ERROR_FILE_OPEN = -3;
+static const int ERROR_FILE_NAME_TOO_LONG = -7;
 static const int ERROR_CONTENT_LENGTH_MISMATCH = -5;
 static const int ERROR_CONTENT_LENGTH_UNKNOWN = -6;
-
-int downloadFileToSdFile(Client *client, const char *host, int port, const char *path, const char *targetFileName);
 
 int downloadFileToStream(Client *client, const char *host, int port, const char *path, Stream *target);
 
@@ -30,6 +30,14 @@ public:
     }
 
     int download(const char *host, int port, const char *path, const char *targetFileName);
+
+    int downloadReuseConnection(const char *host, const char *path, const char *targetFileName);
+
+    int downloadReconnect(const char *host, int port, const char *path, const char *targetFileName);
+
+    int prepareGetRequest(const char *host, const char *path);
+
+    int download(const char *targetFileName);
 
 private:
     Client *client;
