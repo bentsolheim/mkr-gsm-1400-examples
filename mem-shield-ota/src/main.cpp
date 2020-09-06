@@ -27,6 +27,28 @@ const int SDchipSelect = 4;
 
 void printDirectory(File dir, int numTabs);
 
+unsigned long start;
+HttpToSdDownloader downloader(&client);
+
+struct downloadDesc {
+    const char *path;
+    const char *targetFileName;
+};
+
+downloadDesc filesToDownload[] = {
+        downloadDesc{
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio2.ini",
+                .targetFileName = "/test/pio2.ini"
+        },
+        downloadDesc{
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini",
+                .targetFileName = "/test/pio.ini"
+        },
+        downloadDesc{
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png",
+                .targetFileName = "/test/diagram.png"
+        },
+};
 
 void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
@@ -43,7 +65,9 @@ void setup() {
         Serial.println("SD Failed");
         return;
     }
+    SD.enableCRC(true);
 
+    start = millis();
     Serial.println("Network start");
     bool connected = false;
     while (!connected) {
@@ -55,6 +79,9 @@ void setup() {
             delay(1000);
         }
     }
+    Serial.print("Network connection established in ");
+    Serial.print(millis() - start);
+    Serial.println(" millis");
 
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -76,7 +103,6 @@ void loop() {
     Serial.println(__TIME__);
 
     int status;
-    unsigned long start;
 
     start = millis();
     if (!client.connect("raw.githubusercontent.com", 443)) {
@@ -86,28 +112,7 @@ void loop() {
         Serial.print(millis() - start);
         Serial.println(" millis");
     }
-    HttpToSdDownloader downloader(&client);
 
-    struct p {
-        const char *path;
-        const char *targetFileName;
-    };
-
-    p filesToDownload[] = {
-            p{
-                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio2.ini",
-                    .targetFileName = "/test/pio2.ini"
-            },
-            p{
-                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini",
-                    .targetFileName = "/test/pio.ini"
-            },
-            p{
-                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png",
-                    .targetFileName = "/test/diagram.png"
-            },
-    };
-    
     for (auto & i : filesToDownload) {
 
         const char *path = i.path;
