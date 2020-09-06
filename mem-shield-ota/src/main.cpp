@@ -113,23 +113,21 @@ void loop() {
         Serial.println(" millis");
     }
 
-    for (auto & i : filesToDownload) {
+    for (auto &i : filesToDownload) {
 
-        const char *path = i.path;
-        const char *targetFileName = i.targetFileName;
         start = millis();
-        status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
+        status = downloader.downloadReuseConnection("raw.githubusercontent.com", i.path, i.targetFileName);
 
         if (status != DOWNLOAD_OK) {
             Serial.print("Download of ");
-            Serial.print(path);
+            Serial.print(i.path);
             Serial.print(" failed. Error code: ");
             Serial.println(status);
         } else {
             Serial.print("Downloaded ");
-            Serial.print(path);
+            Serial.print(i.path);
             Serial.print(" to ");
-            Serial.print(targetFileName);
+            Serial.print(i.targetFileName);
             Serial.print(" in ");
             Serial.print(millis() - start);
             Serial.println(" millis");

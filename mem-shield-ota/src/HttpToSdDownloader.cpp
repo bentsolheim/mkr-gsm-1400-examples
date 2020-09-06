@@ -77,10 +77,11 @@ int downloadToSdFile(Client *client, const char *targetFileName) {
 
 int downloadToStream(Client *client, Stream *target) {
 
-    int contentLength = readHeaderSection(client);
-    if (contentLength == -1) {
+    int contentLength, status;
+    contentLength = status = readHeaderSection(client);
+    if (status == -1) {
         return ERROR_HTTP_READ_ERROR;
-    } else if (contentLength == 0) {
+    } else if (status == 0) {
         return ERROR_CONTENT_LENGTH_UNKNOWN;
     }
 
@@ -89,18 +90,29 @@ int downloadToStream(Client *client, Stream *target) {
         return ERROR_FILE_WRITE;
     }
 
+    target->flush();
+    if (status < -1) {
+        return status;
+    }
     if (bytesCopied != contentLength) {
         return ERROR_CONTENT_LENGTH_MISMATCH;
     }
 
-    target->flush();
-
     return DOWNLOAD_OK;
+}
+
+int getStatusCode(char httpStatusLine[]) {
+    // HTTP/1.1 404 Not Found
+    char *statusCode = httpStatusLine;
+    while (statusCode[0] != ' ') statusCode++;
+
+    return strtol(statusCode, nullptr, 10);
 }
 
 /**
  * Reads the HTTP header section from the client and stops right before the response body starts. Will return the
- * value of the Content-Type header if it has been set. 0 otherwise. Returns -1 on any errors reading the http stream.
+ * value of the Content-Type header if it has been set. 0 otherwise. Returns -1 on any errors reading the http stream,
+ * and in case of non 200 HTTP status code the status code multiplied by -1 is returned.
  * The method assumes that no bytes have been previously read from the response.
  * @param client
  * @return
@@ -111,6 +123,8 @@ int readHeaderSection(Client *client) {
         return -1;
     }
     int contentLength = 0;
+    int statusCode = 0;
+
     char line[1000]; // Have not figured out how to make the line length arbitrary
     while (true) {
         size_t readBytes = client->readBytesUntil('\n', line, sizeof(line));
@@ -128,7 +142,7 @@ int readHeaderSection(Client *client) {
 
         if (readBytes == headerNameEndIndex) {
             // This line does not contain a ':', which means this is the http status line.
-            // Should probably read the status code here.
+            statusCode = getStatusCode(line);
             continue;
         }
 
@@ -151,6 +165,9 @@ int readHeaderSection(Client *client) {
         if (strcmp(headerName, "content-length") == 0) {
             contentLength = atoi(value);
         }
+    }
+    if (statusCode != 200) {
+        return statusCode * -1;
     }
     return contentLength;
 }
