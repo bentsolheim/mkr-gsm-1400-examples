@@ -88,38 +88,47 @@ void loop() {
     }
     HttpToSdDownloader downloader(&client);
 
-    const char *path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini";
-    const char *targetFileName = "/test/pio.ini";
-    status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
+    struct p {
+        const char *path;
+        const char *targetFileName;
+    };
 
-    if (status != DOWNLOAD_OK) {
-        Serial.print("Download failed. Error code: ");
-        Serial.println(status);
-    } else {
-        Serial.print("Downloaded ");
-        Serial.print(path);
-        Serial.print(" to ");
-        Serial.print(targetFileName);
-        Serial.print(" in ");
-        Serial.print(millis() - start);
-        Serial.println(" millis");
-    }
+    p filesToDownload[] = {
+            p{
+                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio2.ini",
+                    .targetFileName = "/test/pio2.ini"
+            },
+            p{
+                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini",
+                    .targetFileName = "/test/pio.ini"
+            },
+            p{
+                    .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png",
+                    .targetFileName = "/test/diagram.png"
+            },
+    };
+    
+    for (auto & i : filesToDownload) {
 
-    path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png";
-    targetFileName = "/test/diagram.png";
-    status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
+        const char *path = i.path;
+        const char *targetFileName = i.targetFileName;
+        start = millis();
+        status = downloader.downloadReuseConnection("raw.githubusercontent.com", path, targetFileName);
 
-    if (status != DOWNLOAD_OK) {
-        Serial.print("Download failed. Error code: ");
-        Serial.println(status);
-    } else {
-        Serial.print("Downloaded ");
-        Serial.print(path);
-        Serial.print(" to ");
-        Serial.print(targetFileName);
-        Serial.print(" in ");
-        Serial.print(millis() - start);
-        Serial.println(" millis");
+        if (status != DOWNLOAD_OK) {
+            Serial.print("Download of ");
+            Serial.print(path);
+            Serial.print(" failed. Error code: ");
+            Serial.println(status);
+        } else {
+            Serial.print("Downloaded ");
+            Serial.print(path);
+            Serial.print(" to ");
+            Serial.print(targetFileName);
+            Serial.print(" in ");
+            Serial.print(millis() - start);
+            Serial.println(" millis");
+        }
     }
 
     client.stop();
