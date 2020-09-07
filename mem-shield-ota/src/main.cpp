@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <MKRGSM.h>
 #include <SD.h>
+#include <Adafruit_SleepyDog.h>
 
 __attribute__ ((section(".sketch_boot")))
 unsigned char sduBoot[0x4000] = {
@@ -41,12 +42,16 @@ downloadDesc filesToDownload[] = {
                 .targetFileName = "/test/pio2.ini"
         },
         downloadDesc{
-                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/platformio.ini",
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/testfiles/platformio.ini",
                 .targetFileName = "/test/pio.ini"
         },
         downloadDesc{
-                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/diagram.png",
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/testfiles/diagram.png",
                 .targetFileName = "/test/diagram.png"
+        },
+        downloadDesc{
+                .path = "/bentsolheim/mkr-gsm-1400-examples/master/mem-shield-ota/testfiles/firmware.bin",
+                .targetFileName = "/UPDATE.bin"
         },
 };
 
@@ -93,8 +98,6 @@ void setup() {
             Serial.println("Unable to create folder");
         }
     }
-
-    client.setTimeout(1000);
 }
 
 void loop() {
@@ -139,6 +142,7 @@ void loop() {
     File root = SD.open(outputFolder);
     printDirectory(root, 0);
 
+    Watchdog.enable(5000);
     delay(15000);
 }
 
